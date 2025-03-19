@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send, Loader2 } from "lucide-react"
 
-// Tipo para as mensagens do chat
 type Message = {
   id: string
   content: string
@@ -15,7 +14,6 @@ type Message = {
   timestamp: Date
 }
 
-// Tipo para eventos do Google Agenda
 type CalendarEvent = {
   summary: string
   description?: string
@@ -29,47 +27,48 @@ export function ExecutiveAssistantChat() {
   const [isLoading, setIsLoading] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  // Função para enviar mensagem à API da LLM
   const sendMessageToLLM = async (message: string) => {
     try {
       setIsLoading(true)
-      // Substitua pela URL da sua API de LLM (ex.: xAI ou outra)
-      const response = await fetch("/api/llm", {
+      const response = await fetch("/api/ai", { // Removi a barra extra no final
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       })
 
-      if (!response.ok) throw new Error("Failed to fetch LLM response")
       const data = await response.json()
-      return data.reply // Ajuste conforme a estrutura da resposta da API
-    } catch (error) {
-      console.error("Error fetching LLM response:", error)
-      return "Desculpe, ocorreu um erro ao processar sua mensagem."
+
+      if (!response.ok) {
+        throw new Error(data.error || "Falha ao obter resposta da API")
+      }
+
+      return data.reply
+    } catch (error: unknown) {
+      console.error("Erro ao buscar resposta da LLM:", error)
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido"
+      return `Desculpe, houve um problema: ${errorMessage}`
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Função para agendar evento no Google Agenda
   const scheduleGoogleCalendarEvent = async (event: CalendarEvent) => {
     try {
-      // Substitua pela URL da sua API que integra com o Google Calendar
-      const response = await fetch("/api/google-calendar", {
+      const response = await fetch("/api/calendar/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(event),
       })
 
-      if (!response.ok) throw new Error("Failed to schedule event")
+      if (!response.ok) throw new Error("Falha ao agendar evento")
       return "Evento agendado com sucesso!"
-    } catch (error) {
-      console.error("Error scheduling event:", error)
-      return "Erro ao agendar o evento no Google Agenda."
+    } catch (error: unknown) {
+      console.error("Erro ao agendar evento:", error)
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido"
+      return `Erro ao agendar no Google Agenda: ${errorMessage}`
     }
   }
 
-  // Função para interpretar a mensagem e decidir se é um agendamento
   const processMessage = async (message: string) => {
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -79,18 +78,16 @@ export function ExecutiveAssistantChat() {
     }
     setMessages((prev) => [...prev, userMessage])
 
-    // Verifica se a mensagem contém palavras-chave de agendamento
     const lowerMessage = message.toLowerCase()
     if (
       lowerMessage.includes("agendar") ||
       lowerMessage.includes("marcar") ||
       lowerMessage.includes("compromisso")
     ) {
-      // Exemplo simples de extração de dados (pode ser melhorado com NLP)
       const event: CalendarEvent = {
         summary: message.split("agendar")[1]?.trim() || "Compromisso do CEO",
-        start: { dateTime: new Date().toISOString() }, // Data atual como padrão
-        end: { dateTime: new Date(Date.now() + 3600000).toISOString() }, // 1 hora depois
+        start: { dateTime: new Date().toISOString() },
+        end: { dateTime: new Date(Date.now() + 3600000).toISOString() },
       }
 
       const reply = await scheduleGoogleCalendarEvent(event)
@@ -102,7 +99,6 @@ export function ExecutiveAssistantChat() {
       }
       setMessages((prev) => [...prev, assistantMessage])
     } else {
-      // Envia para a LLM para resposta genérica
       const reply = await sendMessageToLLM(message)
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
@@ -114,14 +110,12 @@ export function ExecutiveAssistantChat() {
     }
   }
 
-  // Enviar mensagem ao pressionar Enter ou clicar no botão
   const handleSendMessage = () => {
     if (!input.trim() || isLoading) return
     processMessage(input)
     setInput("")
   }
 
-  // Auto-scroll para a última mensagem
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
